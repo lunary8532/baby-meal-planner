@@ -1,0 +1,149 @@
+import requests
+import random
+import pandas as pd
+
+# 네이버 API 정보
+client_id = "7zDOPj1vGR_K2PM2TIJ9"
+client_secret = "6EnqoE4Dp2"
+
+def naver_image_search(query, display=1):
+    """네이버 이미지 검색"""
+    url = "https://openapi.naver.com/v1/search/image"
+    headers = {
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret
+    }
+    params = {
+        "query": query,
+        "display": display,
+        "sort": "sim"
+    }
+    res = requests.get(url, headers=headers, params=params)
+    if res.status_code == 200:
+        items = res.json().get('items', [])
+        return items
+    else:
+        print(f"❌ 네이버 API 오류: {res.status_code}")
+        return []
+
+# 아침 채소 랜덤 리스트
+veggie_list = [
+    ["당근", "브로콜리"], ["고구마", "애호박"], ["단호박", "콜리플라워"],
+    ["감자", "아스파라거스"], ["양배추", "당근"], ["브로콜리", "감자"], ["애호박", "단호박"]
+]
+random.shuffle(veggie_list)
+
+# 점심/저녁 메뉴 후보
+lunch_options = ["소고기야채주먹밥", "아기용 불고기", "소고기미역국", "키드용 잡채", "떡갈비", "돼지고기 두부덮밥", "돼지고기 미트볼"]
+dinner_options = ["두부죽", "돼지고기 미트볼", "소고기 미역국", "잡채", "떡갈비", "불고기", "주먹밥"]
+
+random.shuffle(lunch_options)
+random.shuffle(dinner_options)
+
+# 주간 식단 데이터
+weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+menu_data = []
+
+for i in range(7):
+    morning = f"찐 {veggie_list[i][0]}·{veggie_list[i][1]} + 그릭 요거트"
+    lunch = lunch_options[i]
+    dinner = dinner_options[i]
+
+    lunch_img = naver_image_search(lunch, 1)
+    dinner_img = naver_image_search(dinner, 1)
+
+    lunch_url = lunch_img[0]['link'] if lunch_img else ""
+    dinner_url = dinner_img[0]['link'] if dinner_img else ""
+
+    menu_data.append([weekdays[i], morning, lunch, lunch_url, dinner, dinner_url])
+
+df = pd.DataFrame(menu_data, columns=["요일", "아침", "점심", "점심이미지", "저녁", "저녁이미지"])
+
+# HTML 생성
+html = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>유아식 주간 식단표</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+  table { text-align: center; }
+  img { border-radius: 10px; }
+</style>
+</head>
+<body class="p-4">
+<h2 class="mb-4">1살 유아식 주간 식단표</h2>
+<table class="table table-bordered">
+<thead class="table-light">
+<tr>
+<th>요일</th>
+<th>아침</th>
+<th>점심</th>
+<th>저녁</th>
+</tr>
+</thead>
+<tbody>
+"""
+
+for idx, row in df.iterrows():
+    html += f"""
+    <tr>
+        <td>{row['요일']}</td>
+        <td>{row['아침']}</td>
+        <td>
+            <a href="#" data-bs-toggle="modal" data-bs-target="#modal{idx}_lunch">
+                {row['점심']}
+            </a>
+            <!-- 점심 모달 -->
+            <div class="modal fade" id="modal{idx}_lunch" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">{row['점심']}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body text-center">
+                    <img src="{row['점심이미지']}" class="img-fluid">
+                    <p class="mt-3"><a href="https://www.google.com/search?q={row['점심']}" target="_blank">레시피 보기</a></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </td>
+        <td>
+            <a href="#" data-bs-toggle="modal" data-bs-target="#modal{idx}_dinner">
+                {row['저녁']}
+            </a>
+            <!-- 저녁 모달 -->
+            <div class="modal fade" id="modal{idx}_dinner" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">{row['저녁']}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body text-center">
+                    <img src="{row['저녁이미지']}" class="img-fluid">
+                    <p class="mt-3"><a href="https://www.google.com/search?q={row['저녁']}" target="_blank">레시피 보기</a></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </td>
+    </tr>
+    """
+
+html += """
+</tbody>
+</table>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+"""
+
+# HTML 파일 저장
+with open("유아식_주간_식단표.html", "w", encoding="utf-8") as f:
+    f.write(html)
+
+print("✅ HTML 파일 생성 완료: 유아식_주간_식단표.html")
